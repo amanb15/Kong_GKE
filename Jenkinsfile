@@ -8,15 +8,10 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                git 'https://github.com/amanb15/Kong_GKE.git'
-            }
-        }
-
         stage('Terraform Init') {
             steps {
                 dir('KONG_GKE_STD') {
+                    sh 'ls -l'   // DEBUG (important)
                     sh 'terraform init'
                 }
             }
