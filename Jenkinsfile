@@ -19,23 +19,16 @@ pipeline {
             }
         }
 
-        stage('Terraform Plan') {
-            steps {
-                sh '''
-                terraform plan \
-                -var="project_id=$PROJECT_ID" \
-                -var="konnect_server_url=$KONNECT_SERVER_URL"
-                '''
-            }
-        }
-
         stage('Terraform Apply') {
             steps {
-                sh '''
-                terraform apply -auto-approve \
-                -var="project_id=$PROJECT_ID" \
-                -var="konnect_server_url=$KONNECT_SERVER_URL"
-                '''
+                withCredentials([string(credentialsId: 'konnect-pat', variable: 'KONNECT_PAT')]) {
+                    sh '''
+                    terraform apply -auto-approve \
+                    -var="project_id=$PROJECT_ID" \
+                    -var="konnect_server_url=$KONNECT_SERVER_URL" \
+                    -var="konnect_pat=$KONNECT_PAT"
+                    '''
+                }
             }
         }
     }
