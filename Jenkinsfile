@@ -10,25 +10,21 @@ pipeline {
     stages {
         stage('Terraform Init') {
             steps {
-                dir('KONG_GKE_STD') {
-                    sh 'ls -l'   // DEBUG (important)
-                    sh 'terraform init'
-                }
+                sh 'ls -l'   // debug
+                sh 'terraform init'
             }
         }
 
         stage('Terraform Apply') {
             steps {
                 withCredentials([string(credentialsId: 'konnect-pat', variable: 'KONNECT_PAT')]) {
-                    dir('KONG_GKE_STD') {
-                        sh '''
-                        terraform apply -auto-approve \
-                        -var="project_id=$PROJECT_ID" \
-                        -var="konnect_server_url=$KONNECT_SERVER_URL" \
-                        -var="konnect_control_plane_id=$KONNECT_CONTROL_PLANE_ID" \
-                        -var="konnect_pat=$KONNECT_PAT"
-                        '''
-                    }
+                    sh '''
+                    terraform apply -auto-approve \
+                    -var="project_id=$PROJECT_ID" \
+                    -var="konnect_server_url=$KONNECT_SERVER_URL" \
+                    -var="konnect_control_plane_id=$KONNECT_CONTROL_PLANE_ID" \
+                    -var="konnect_pat=$KONNECT_PAT"
+                    '''
                 }
             }
         }
