@@ -4,7 +4,7 @@ pipeline {
     environment {
         PROJECT_ID = "kong-gke-493913"
         KONNECT_SERVER_URL = "https://us.api.konghq.com"
-        KONNECT_CONTROL_PLANE_ID = "473f901e-51fd-4e4a-babb-301219dc6b2e"
+        KONNECT_CONTROL_PLANE_ID = "47da2826-53e2-44c3-a036-9bedb2bd27fd"
         CLUSTER_NAME = "kong-gke-gcp-project"
         ZONE = "us-central1-a"
     }
