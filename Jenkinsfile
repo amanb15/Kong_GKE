@@ -14,7 +14,7 @@ pipeline {
         // 🔹 CLEAN WORKSPACE
         stage('Clean Workspace') {
             steps {
-                sh 'rm -rf *'
+                deleteDir()
             }
         }
 
