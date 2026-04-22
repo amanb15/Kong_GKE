@@ -17,18 +17,15 @@ pipeline {
             }
         }
 
-        // 🔹 STEP 1: Create/Update full infrastructure (NO -target)
-        stage('Terraform Apply - Infra') {
+        // 🔹 STEP 1: Create ONLY cluster + node pool
+        stage('Terraform Apply - Cluster Only') {
             steps {
-                withCredentials([string(credentialsId: 'konnect-pat', variable: 'KONNECT_PAT')]) {
-                    sh '''
-                    terraform apply -auto-approve \
-                    -var="project_id=$PROJECT_ID" \
-                    -var="konnect_server_url=$KONNECT_SERVER_URL" \
-                    -var="konnect_control_plane_id=$KONNECT_CONTROL_PLANE_ID" \
-                    -var="konnect_pat=$KONNECT_PAT"
-                    '''
-                }
+                sh '''
+                terraform apply -auto-approve \
+                -target=google_container_cluster.cluster \
+                -target=google_container_node_pool.nodes \
+                -var="project_id=$PROJECT_ID"
+                '''
             }
         }
 
@@ -43,7 +40,7 @@ pipeline {
             }
         }
 
-        // 🔹 STEP 3: Wait for cluster API (robust retry)
+        // 🔹 STEP 3: Wait for API
         stage('Wait for Cluster API') {
             steps {
                 sh '''
@@ -56,7 +53,7 @@ pipeline {
             }
         }
 
-        // 🔹 STEP 4: Ensure nodes are ready
+        // 🔹 STEP 4: Wait for nodes ready
         stage('Wait for Nodes Ready') {
             steps {
                 sh '''
@@ -65,24 +62,26 @@ pipeline {
             }
         }
 
-        // 🔹 STEP 5: Install Gateway API (idempotent)
+        // 🔹 STEP 5: Install Gateway API (CRITICAL)
         stage('Install Gateway API') {
             steps {
                 sh '''
-                kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml --validate=false || true
+                kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml --validate=false
                 '''
             }
         }
 
-        // 🔹 STEP 6: Verify cluster
-        stage('Verify Cluster Access') {
+        // 🔹 STEP 6: Verify CRDs (extra safety)
+        stage('Verify Gateway API') {
             steps {
-                sh 'kubectl get nodes'
+                sh '''
+                kubectl get crds | grep gateway
+                '''
             }
         }
 
-        // 🔹 STEP 7: Apply again (ensures Kong + Gateway fully reconcile)
-        stage('Terraform Apply - Kong') {
+        // 🔹 STEP 7: FULL Terraform (Kong + Gateway)
+        stage('Terraform Apply - Full') {
             steps {
                 withCredentials([string(credentialsId: 'konnect-pat', variable: 'KONNECT_PAT')]) {
                     sh '''
