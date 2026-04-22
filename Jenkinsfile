@@ -81,7 +81,7 @@ pipeline {
         }
 
         // 🔹 STEP 7: FULL Terraform (Kong + Gateway)
-        stage('Terraform Apply - Cluster Only') {
+        stage('Terraform Apply - Full') {
     steps {
         withCredentials([string(credentialsId: 'konnect-pat', variable: 'KONNECT_PAT')]) {
             sh '''
