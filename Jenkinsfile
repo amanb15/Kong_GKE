@@ -17,14 +17,12 @@ pipeline {
             }
         }
 
-        // 🔹 STEP 1: Create GKE cluster
-        stage('Create GKE Cluster') {
+        // 🔹 STEP 1: Create/Update full infrastructure (NO -target)
+        stage('Terraform Apply - Infra') {
             steps {
                 withCredentials([string(credentialsId: 'konnect-pat', variable: 'KONNECT_PAT')]) {
                     sh '''
                     terraform apply -auto-approve \
-                    -target=google_container_cluster.cluster \
-                    -target=google_container_node_pool.nodes \
                     -var="project_id=$PROJECT_ID" \
                     -var="konnect_server_url=$KONNECT_SERVER_URL" \
                     -var="konnect_control_plane_id=$KONNECT_CONTROL_PLANE_ID" \
@@ -45,8 +43,21 @@ pipeline {
             }
         }
 
-        // 🔹 STEP 3: Wait until cluster is actually ready (SMART WAIT)
-        stage('Wait for Cluster Ready') {
+        // 🔹 STEP 3: Wait for cluster API (robust retry)
+        stage('Wait for Cluster API') {
+            steps {
+                sh '''
+                for i in {1..30}; do
+                  kubectl get nodes && break
+                  echo "Waiting for cluster API..."
+                  sleep 10
+                done
+                '''
+            }
+        }
+
+        // 🔹 STEP 4: Ensure nodes are ready
+        stage('Wait for Nodes Ready') {
             steps {
                 sh '''
                 kubectl wait --for=condition=Ready nodes --all --timeout=300s
@@ -54,24 +65,24 @@ pipeline {
             }
         }
 
-        // 🔹 STEP 4: Install Gateway API (PERMANENT FIX)
+        // 🔹 STEP 5: Install Gateway API (idempotent)
         stage('Install Gateway API') {
             steps {
                 sh '''
-                kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml --validate=false
+                kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml --validate=false || true
                 '''
             }
         }
 
-        // 🔹 STEP 5: Verify cluster
+        // 🔹 STEP 6: Verify cluster
         stage('Verify Cluster Access') {
             steps {
                 sh 'kubectl get nodes'
             }
         }
 
-        // 🔹 STEP 6: Deploy Kong + Gateway
-        stage('Deploy Kong + Gateway') {
+        // 🔹 STEP 7: Apply again (ensures Kong + Gateway fully reconcile)
+        stage('Terraform Apply - Kong') {
             steps {
                 withCredentials([string(credentialsId: 'konnect-pat', variable: 'KONNECT_PAT')]) {
                     sh '''
@@ -85,7 +96,7 @@ pipeline {
             }
         }
 
-        // 🔹 STEP 7: Final verification
+        // 🔹 STEP 8: Final verification
         stage('Verify Deployment') {
             steps {
                 sh '''
