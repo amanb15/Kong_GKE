@@ -8,14 +8,46 @@ pipeline {
     }
 
     stages {
+
         stage('Terraform Init') {
             steps {
-                sh 'ls -l'   // debug
                 sh 'terraform init'
             }
         }
 
-        stage('Terraform Apply') {
+        // 🔹 STEP 1: Create only cluster
+        stage('Create GKE Cluster') {
+            steps {
+                sh '''
+                terraform apply -auto-approve \
+                -target=google_container_cluster.cluster \
+                -target=google_container_node_pool.nodes \
+                -var="project_id=$PROJECT_ID"
+                '''
+            }
+        }
+
+        // 🔹 STEP 2: Wait for cluster to be ready
+        stage('Wait for Cluster') {
+            steps {
+                echo "Waiting for GKE cluster to be ready..."
+                sh 'sleep 120'
+            }
+        }
+
+        // 🔹 STEP 3: Get credentials (VERY IMPORTANT)
+        stage('Get Kubeconfig') {
+            steps {
+                sh '''
+                gcloud container clusters get-credentials kong-gke-gcp-project \
+                --zone=us-central1-a \
+                --project=$PROJECT_ID
+                '''
+            }
+        }
+
+        // 🔹 STEP 4: Apply full Terraform (Kong + Gateway)
+        stage('Deploy Kong + Gateway') {
             steps {
                 withCredentials([string(credentialsId: 'konnect-pat', variable: 'KONNECT_PAT')]) {
                     sh '''
