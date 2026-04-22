@@ -13,13 +13,11 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                sh '''
-                terraform init
-                '''
+                sh 'terraform init'
             }
         }
 
-        // 🔹 STEP 1: Create only GKE cluster
+        // 🔹 STEP 1: Create GKE cluster
         stage('Create GKE Cluster') {
             steps {
                 withCredentials([string(credentialsId: 'konnect-pat', variable: 'KONNECT_PAT')]) {
@@ -36,15 +34,7 @@ pipeline {
             }
         }
 
-        // 🔹 STEP 2: Wait for cluster readiness
-        stage('Wait for Cluster') {
-            steps {
-                echo "Waiting for GKE cluster to stabilize..."
-                sh 'sleep 120'
-            }
-        }
-
-        // 🔹 STEP 3: Configure kubeconfig
+        // 🔹 STEP 2: Get kubeconfig
         stage('Get Kubeconfig') {
             steps {
                 sh '''
@@ -55,16 +45,32 @@ pipeline {
             }
         }
 
-        // 🔹 STEP 4: Verify cluster connectivity (very important debug step)
-        stage('Verify Cluster Access') {
+        // 🔹 STEP 3: Wait until cluster is actually ready (SMART WAIT)
+        stage('Wait for Cluster Ready') {
             steps {
                 sh '''
-                kubectl get nodes
+                kubectl wait --for=condition=Ready nodes --all --timeout=300s
                 '''
             }
         }
 
-        // 🔹 STEP 5: Deploy Kong + Gateway
+        // 🔹 STEP 4: Install Gateway API (PERMANENT FIX)
+        stage('Install Gateway API') {
+            steps {
+                sh '''
+                kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml --validate=false
+                '''
+            }
+        }
+
+        // 🔹 STEP 5: Verify cluster
+        stage('Verify Cluster Access') {
+            steps {
+                sh 'kubectl get nodes'
+            }
+        }
+
+        // 🔹 STEP 6: Deploy Kong + Gateway
         stage('Deploy Kong + Gateway') {
             steps {
                 withCredentials([string(credentialsId: 'konnect-pat', variable: 'KONNECT_PAT')]) {
@@ -79,7 +85,7 @@ pipeline {
             }
         }
 
-        // 🔹 STEP 6: Final verification
+        // 🔹 STEP 7: Final verification
         stage('Verify Deployment') {
             steps {
                 sh '''
