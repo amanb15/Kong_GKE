@@ -9,8 +9,16 @@ pipeline {
         ZONE = "us-central1-a"
     }
 
+    stages {
 
-}
+        // 🔹 CLEAN WORKSPACE
+        stage('Clean Workspace') {
+            steps {
+                sh 'rm -rf *'
+            }
+        }
+
+        // 🔹 INIT
         stage('Terraform Init') {
             steps {
                 sh 'terraform init'
@@ -20,12 +28,17 @@ pipeline {
         // 🔹 STEP 1: Create ONLY cluster + node pool
         stage('Terraform Apply - Cluster Only') {
             steps {
-                sh '''
-                terraform apply -auto-approve \
-                -target=google_container_cluster.cluster \
-                -target=google_container_node_pool.nodes \
-                -var="project_id=$PROJECT_ID"
-                '''
+                withCredentials([string(credentialsId: 'konnect-pat', variable: 'KONNECT_PAT')]) {
+                    sh '''
+                    terraform apply -auto-approve \
+                    -target=google_container_cluster.cluster \
+                    -target=google_container_node_pool.nodes \
+                    -var="project_id=$PROJECT_ID" \
+                    -var="konnect_server_url=$KONNECT_SERVER_URL" \
+                    -var="konnect_control_plane_id=$KONNECT_CONTROL_PLANE_ID" \
+                    -var="konnect_pat=$KONNECT_PAT"
+                    '''
+                }
             }
         }
 
@@ -62,7 +75,7 @@ pipeline {
             }
         }
 
-        // 🔹 STEP 5: Install Gateway API (CRITICAL)
+        // 🔹 STEP 5: Install Gateway API
         stage('Install Gateway API') {
             steps {
                 sh '''
@@ -71,31 +84,27 @@ pipeline {
             }
         }
 
-        // 🔹 STEP 6: Verify CRDs (extra safety)
+        // 🔹 STEP 6: Verify CRDs
         stage('Verify Gateway API') {
             steps {
-                sh '''
-                kubectl get crds | grep gateway
-                '''
+                sh 'kubectl get crds | grep gateway'
             }
         }
 
         // 🔹 STEP 7: FULL Terraform (Kong + Gateway)
         stage('Terraform Apply - Full') {
-    steps {
-        withCredentials([string(credentialsId: 'konnect-pat', variable: 'KONNECT_PAT')]) {
-            sh '''
-            terraform apply -auto-approve \
-            -target=google_container_cluster.cluster \
-            -target=google_container_node_pool.nodes \
-            -var="project_id=$PROJECT_ID" \
-            -var="konnect_server_url=$KONNECT_SERVER_URL" \
-            -var="konnect_control_plane_id=$KONNECT_CONTROL_PLANE_ID" \
-            -var="konnect_pat=$KONNECT_PAT"
-            '''
+            steps {
+                withCredentials([string(credentialsId: 'konnect-pat', variable: 'KONNECT_PAT')]) {
+                    sh '''
+                    terraform apply -auto-approve \
+                    -var="project_id=$PROJECT_ID" \
+                    -var="konnect_server_url=$KONNECT_SERVER_URL" \
+                    -var="konnect_control_plane_id=$KONNECT_CONTROL_PLANE_ID" \
+                    -var="konnect_pat=$KONNECT_PAT"
+                    '''
+                }
+            }
         }
-    }
-}
 
         // 🔹 STEP 8: Final verification
         stage('Verify Deployment') {
