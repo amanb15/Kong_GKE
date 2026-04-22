@@ -11,6 +11,11 @@ pipeline {
 
     stages {
 
+        stage('Clean Workspace') {
+    steps {
+        sh 'rm -rf *'
+    }
+}
         stage('Terraform Init') {
             steps {
                 sh 'terraform init'
