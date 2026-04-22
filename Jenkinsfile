@@ -81,19 +81,21 @@ pipeline {
         }
 
         // 🔹 STEP 7: FULL Terraform (Kong + Gateway)
-        stage('Terraform Apply - Full') {
-            steps {
-                withCredentials([string(credentialsId: 'konnect-pat', variable: 'KONNECT_PAT')]) {
-                    sh '''
-                    terraform apply -auto-approve \
-                    -var="project_id=$PROJECT_ID" \
-                    -var="konnect_server_url=$KONNECT_SERVER_URL" \
-                    -var="konnect_control_plane_id=$KONNECT_CONTROL_PLANE_ID" \
-                    -var="konnect_pat=$KONNECT_PAT"
-                    '''
-                }
-            }
+        stage('Terraform Apply - Cluster Only') {
+    steps {
+        withCredentials([string(credentialsId: 'konnect-pat', variable: 'KONNECT_PAT')]) {
+            sh '''
+            terraform apply -auto-approve \
+            -target=google_container_cluster.cluster \
+            -target=google_container_node_pool.nodes \
+            -var="project_id=$PROJECT_ID" \
+            -var="konnect_server_url=$KONNECT_SERVER_URL" \
+            -var="konnect_control_plane_id=$KONNECT_CONTROL_PLANE_ID" \
+            -var="konnect_pat=$KONNECT_PAT"
+            '''
         }
+    }
+}
 
         // 🔹 STEP 8: Final verification
         stage('Verify Deployment') {
